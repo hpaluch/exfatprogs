@@ -12,6 +12,7 @@
 #include <string.h>
 #include <errno.h>
 #include <locale.h>
+#include <wchar.h>
 
 #include "exfat_ondisk.h"
 #include "libexfat.h"
@@ -818,6 +819,7 @@ static int read_file_dentry_set(struct exfat_de_iter *iter,
 	bool need_delete = false;
 	uint16_t checksum;
 	char decoded_name[512];
+	mbstate_t ps = { 0 };
 
 	ret = exfat_de_iter_get(iter, 0, &file_de);
 	if (ret || file_de->type != EXFAT_FILE) {
@@ -899,7 +901,10 @@ static int read_file_dentry_set(struct exfat_de_iter *iter,
 		}
 		puts("'");
 	} else {
+		wchar_t buf[1024];
+		const char *src = decoded_name;
 		int i=0;
+		size_t err=0;
 		printf("*** Decoded name: '");
 		for(i=0;decoded_name[i]!=0;i++){
 			if (decoded_name[i]<127 && decoded_name[i]>=32){
@@ -909,7 +914,11 @@ static int read_file_dentry_set(struct exfat_de_iter *iter,
 			}
 		}
 		puts("'");
-
+               err=mbsrtowcs(buf, &src, sizeof(buf), &ps);
+	       printf("err=%lld\n",(long long)err);
+               if (err==(size_t)-1){
+		  exfat_err("ERROR: Above name is not valid UTF-8 name\n");
+	       }
 	}
 
 	node->first_clus = le32_to_cpu(stream_de->stream_start_clu);
