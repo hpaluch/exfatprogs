@@ -817,6 +817,7 @@ static int read_file_dentry_set(struct exfat_de_iter *iter,
 	int i, ret;
 	bool need_delete = false;
 	uint16_t checksum;
+	char decoded_name[512];
 
 	ret = exfat_de_iter_get(iter, 0, &file_de);
 	if (ret || file_de->type != EXFAT_FILE) {
@@ -887,6 +888,28 @@ static int read_file_dentry_set(struct exfat_de_iter *iter,
 			*skip_dentries = file_de->file_num_ext + 1;
 			goto skip_dset;
 		}
+	}
+
+	if (exfat_utf16_dec(dentry->name_unicode, sizeof(dentry->name_unicode),
+		decoded_name, sizeof(decoded_name)) < 0) {
+		int i=0;
+		exfat_err("failed to decode filename: '");
+		for(i=0;i<(int)sizeof(dentry->name_unicode);i++){
+			printf("0x%04x ",0xffff & dentry->name_unicode[i]);
+		}
+		puts("'");
+	} else {
+		int i=0;
+		printf("*** Decoded name: '");
+		for(i=0;decoded_name[i]!=0;i++){
+			if (decoded_name[i]<127 && decoded_name[i]>=32){
+				putchar(decoded_name[i]);
+			} else {
+				printf("<0x%02x>",0xff & decoded_name[i]);
+			}
+		}
+		puts("'");
+
 	}
 
 	node->first_clus = le32_to_cpu(stream_de->stream_start_clu);
